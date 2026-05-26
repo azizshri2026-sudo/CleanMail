@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
-        android:name=".CleanMailApp"
+        android:name="cleanmail.CleanMailApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
@@ -16,7 +16,7 @@
         android:theme="@style/Theme.CleanMail">
 
         <activity
-            android:name=".MainActivity"
+            android:name="cleanmail.MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
