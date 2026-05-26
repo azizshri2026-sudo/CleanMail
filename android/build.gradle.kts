@@ -30,7 +30,13 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
+        kotlinCompilerExtensionVersion = "1.5.11"
+    }
+
+    packaging {
+        resources {
+            excludes += setOf("META-INF/NOTICE.md", "META-INF/LICENSE.md", "META-INF/NOTICE.txt", "META-INF/LICENSE.txt")
+        }
     }
 
     compileOptions {
@@ -72,6 +78,10 @@ dependencies {
 
     // Coroutines Android
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    // kotlinx-datetime and serialization (used in UI screens)
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // SQLCipher
     implementation("net.zetetic:android-database-sqlcipher:4.5.4")

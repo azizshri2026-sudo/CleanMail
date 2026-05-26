@@ -1,10 +1,16 @@
 package cleanmail.imap
 
-import cleanmail.models.*
+import cleanmail.models.Account
+import cleanmail.models.Email as DomainEmail
+import cleanmail.models.EmailAddress
+import cleanmail.models.Folder as DomainFolder
+import cleanmail.models.FolderRole
+import cleanmail.models.SecurityType
 import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPStore
-import jakarta.mail.*
-import jakarta.mail.internet.InternetAddress
+import javax.mail.*
+import javax.mail.Folder as JavaMailFolder
+import javax.mail.internet.InternetAddress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +18,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import java.util.Properties
+import javax.mail.UIDFolder
 import javax.mail.event.MessageCountAdapter
 import javax.mail.event.MessageCountEvent
 
@@ -36,17 +43,17 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
         store = null
     }
 
-    actual override suspend fun listFolders(): ImapResult<List<Folder>> = withContext(Dispatchers.IO) {
+    actual override suspend fun listFolders(): ImapResult<List<DomainFolder>> = withContext(Dispatchers.IO) {
         runCatching {
             val s = requireStore()
             s.defaultFolder.list("*").map { it.toFolder(account.id) }
         }.toImapResult()
     }
 
-    actual override suspend fun selectFolder(folderPath: String): ImapResult<Folder> = withContext(Dispatchers.IO) {
+    actual override suspend fun selectFolder(folderPath: String): ImapResult<DomainFolder> = withContext(Dispatchers.IO) {
         runCatching {
             val folder = requireStore().getFolder(folderPath)
-            folder.open(Folder.READ_ONLY)
+            folder.open(JavaMailFolder.READ_ONLY)
             folder.toFolder(account.id)
         }.toImapResult()
     }
@@ -54,9 +61,11 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
     actual override suspend fun fetchUids(folderPath: String, sinceUid: Long): ImapResult<List<Long>> = withContext(Dispatchers.IO) {
         runCatching {
             val folder = requireStore().getFolder(folderPath) as IMAPFolder
-            if (!folder.isOpen) folder.open(Folder.READ_ONLY)
-            val term = if (sinceUid <= 1L) null else UIDTerm(sinceUid, Long.MAX_VALUE)
-            val messages = if (term != null) folder.search(term) else folder.messages
+            if (!folder.isOpen) folder.open(JavaMailFolder.READ_ONLY)
+            val messages = if (sinceUid <= 1L)
+                folder.messages
+            else
+                (folder as UIDFolder).getMessagesByUID(sinceUid, UIDFolder.LASTUID)
             messages.map { folder.getUID(it) }
         }.toImapResult()
     }
@@ -65,10 +74,10 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
         folderPath: String,
         uids: List<Long>,
         fetchBody: Boolean
-    ): ImapResult<List<Email>> = withContext(Dispatchers.IO) {
+    ): ImapResult<List<DomainEmail>> = withContext(Dispatchers.IO) {
         runCatching {
             val imapFolder = requireStore().getFolder(folderPath) as IMAPFolder
-            if (!imapFolder.isOpen) imapFolder.open(Folder.READ_ONLY)
+            if (!imapFolder.isOpen) imapFolder.open(JavaMailFolder.READ_ONLY)
             val fp = FetchProfile().apply {
                 add(FetchProfile.Item.ENVELOPE)
                 add(FetchProfile.Item.FLAGS)
@@ -82,10 +91,10 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
         }.toImapResult()
     }
 
-    actual override suspend fun fetchEmailBody(folderPath: String, uid: Long): ImapResult<Email> = withContext(Dispatchers.IO) {
+    actual override suspend fun fetchEmailBody(folderPath: String, uid: Long): ImapResult<DomainEmail> = withContext(Dispatchers.IO) {
         runCatching {
             val imapFolder = requireStore().getFolder(folderPath) as IMAPFolder
-            if (!imapFolder.isOpen) imapFolder.open(Folder.READ_ONLY)
+            if (!imapFolder.isOpen) imapFolder.open(JavaMailFolder.READ_ONLY)
             val msg = imapFolder.getMessageByUID(uid) ?: error("UID $uid not found")
             msg.toEmail(account.id, folderPath, uid, fetchBody = true)
         }.toImapResult()
@@ -105,7 +114,7 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
             val s = requireStore()
             val src = s.getFolder(fromFolder) as IMAPFolder
             val dst = s.getFolder(toFolder)
-            if (!src.isOpen) src.open(Folder.READ_WRITE)
+            if (!src.isOpen) src.open(JavaMailFolder.READ_WRITE)
             val messages = uids.map { src.getMessageByUID(it) }.filterNotNull().toTypedArray()
             src.moveMessages(messages, dst)
         }.toImapResult()
@@ -117,7 +126,7 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
     actual override suspend fun expunge(folderPath: String): ImapResult<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val folder = requireStore().getFolder(folderPath)
-            if (!folder.isOpen) folder.open(Folder.READ_WRITE)
+            if (!folder.isOpen) folder.open(JavaMailFolder.READ_WRITE)
             folder.expunge()
             Unit
         }.toImapResult()
@@ -125,7 +134,7 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
 
     actual override fun idle(folderPath: String): Flow<IdleEvent> = callbackFlow {
         val imapFolder = requireStore().getFolder(folderPath) as IMAPFolder
-        if (!imapFolder.isOpen) imapFolder.open(Folder.READ_ONLY)
+        if (!imapFolder.isOpen) imapFolder.open(JavaMailFolder.READ_ONLY)
 
         val listener = object : MessageCountAdapter() {
             override fun messagesAdded(e: MessageCountEvent) {
@@ -183,7 +192,7 @@ actual class ImapClient actual constructor(private val account: Account) : IImap
     ): ImapResult<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val imapFolder = requireStore().getFolder(folderPath) as IMAPFolder
-            if (!imapFolder.isOpen) imapFolder.open(Folder.READ_WRITE)
+            if (!imapFolder.isOpen) imapFolder.open(JavaMailFolder.READ_WRITE)
             val messages = uids.map { imapFolder.getMessageByUID(it) }.filterNotNull().toTypedArray()
             imapFolder.setFlags(messages, Flags(flag), value)
         }.toImapResult()
@@ -231,8 +240,8 @@ private fun javax.mail.Message.toEmail(
         uid = uid,
         messageId = getHeader("Message-ID")?.firstOrNull() ?: "",
         from = from,
-        to = (getRecipients(RecipientType.TO) ?: emptyArray()).mapInternetAddresses(),
-        cc = (getRecipients(RecipientType.CC) ?: emptyArray()).mapInternetAddresses(),
+        to = (getRecipients(Message.RecipientType.TO) ?: emptyArray()).mapInternetAddresses(),
+        cc = (getRecipients(Message.RecipientType.CC) ?: emptyArray()).mapInternetAddresses(),
         subject = subject ?: "(no subject)",
         bodyText = if (fetchBody) extractText(content) else "",
         bodyHtml = if (fetchBody) extractHtml(content) else "",

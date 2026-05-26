@@ -20,6 +20,7 @@ import cleanmail.crypto.CryptoManager
 import cleanmail.crypto.OAuthManager
 import cleanmail.crypto.OAuthProviders
 import cleanmail.models.*
+import cleanmail.db.toDbEntity
 import cleanmail.oauth.OAuthCallbackBus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
