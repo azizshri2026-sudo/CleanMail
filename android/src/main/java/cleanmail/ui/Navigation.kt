@@ -77,7 +77,11 @@ fun CleanMailNavHost() {
         ) { back ->
             AccountSetupScreen(
                 accountId = back.arguments?.getString("accountId"),
-                onSaved = { navController.popBackStack() },
+                onSaved = {
+                    navController.navigate(Screen.Inbox.go("default")) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 onBack = { navController.popBackStack() }
             )
         }
