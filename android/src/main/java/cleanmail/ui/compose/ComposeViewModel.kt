@@ -1,10 +1,13 @@
 package cleanmail.ui.compose
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import cleanmail.CleanMailApp
 import cleanmail.db.toDomain
 import cleanmail.models.Account
+import cleanmail.models.AuthType
+import cleanmail.models.SecurityType
 import cleanmail.smtp.MessageComposer
 import cleanmail.smtp.OutgoingMessage
 import cleanmail.smtp.SmtpResult
@@ -21,13 +24,24 @@ data class ComposeUiState(
     val error: String? = null
 )
 
-class ComposeViewModel(
-    private val account: Account,
-    replyToId: String? = null
-) : ViewModel() {
+class ComposeViewModel(private val replyToId: String? = null) : ViewModel() {
 
     private val db = CleanMailApp.instance.database
-    private val composer = MessageComposer(account, db)
+
+    private fun currentAccount(): Account? =
+        db.accountQueries.selectAll().executeAsList().firstOrNull()?.let { r ->
+            Account(
+                id = r.id, displayName = r.display_name, emailAddress = r.email_address,
+                authType = AuthType.valueOf(r.auth_type),
+                imapHost = r.imap_host, imapPort = r.imap_port.toInt(),
+                imapSecurity = SecurityType.valueOf(r.imap_security),
+                smtpHost = r.smtp_host, smtpPort = r.smtp_port.toInt(),
+                smtpSecurity = SecurityType.valueOf(r.smtp_security),
+                passwordEncrypted = r.password_encrypted,
+                oauthTokenEncrypted = r.oauth_token_encrypted,
+                oauthRefreshTokenEncrypted = r.oauth_refresh_token_encrypted
+            )
+        }
 
     private val _uiState = MutableStateFlow(ComposeUiState())
     val uiState: StateFlow<ComposeUiState> = _uiState.asStateFlow()
@@ -42,6 +56,10 @@ class ComposeViewModel(
     fun updateBody(value: String)    = _uiState.update { it.copy(bodyText = value) }
 
     fun send() {
+        val acc = currentAccount() ?: run {
+            _uiState.update { it.copy(error = "No account configured") }
+            return
+        }
         val s = _uiState.value
         if (s.to.isBlank()) {
             _uiState.update { it.copy(error = "Recipient required") }
@@ -50,13 +68,13 @@ class ComposeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true, error = null) }
             val msg = OutgoingMessage(
-                from = cleanmail.models.EmailAddress(account.displayName, account.emailAddress),
+                from = cleanmail.models.EmailAddress(acc.displayName, acc.emailAddress),
                 to = s.to.split(",").map { cleanmail.models.EmailAddress(address = it.trim()) },
                 cc = s.cc.split(",").filter { it.isNotBlank() }.map { cleanmail.models.EmailAddress(address = it.trim()) },
                 subject = s.subject,
                 bodyText = s.bodyText
             )
-            when (val result = composer.send(msg)) {
+            when (val result = MessageComposer(acc, db).send(msg)) {
                 is SmtpResult.Success -> _uiState.update { it.copy(isSent = true, isSending = false) }
                 is SmtpResult.Failure -> _uiState.update { it.copy(error = result.error.toString(), isSending = false) }
             }
@@ -64,11 +82,12 @@ class ComposeViewModel(
     }
 
     fun saveDraft() {
+        val acc = currentAccount() ?: return
         val s = _uiState.value
         viewModelScope.launch {
-            composer.saveDraft(
+            MessageComposer(acc, db).saveDraft(
                 OutgoingMessage(
-                    from = cleanmail.models.EmailAddress(account.displayName, account.emailAddress),
+                    from = cleanmail.models.EmailAddress(acc.displayName, acc.emailAddress),
                     to = s.to.split(",").map { cleanmail.models.EmailAddress(address = it.trim()) },
                     subject = s.subject,
                     bodyText = s.bodyText
@@ -90,8 +109,9 @@ class ComposeViewModel(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        viewModelScope.launch { composer.disconnect() }
+    class Factory(private val replyToId: String?) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            ComposeViewModel(replyToId) as T
     }
 }

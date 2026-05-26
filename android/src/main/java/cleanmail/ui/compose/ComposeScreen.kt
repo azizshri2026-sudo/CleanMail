@@ -15,7 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun ComposeScreen(
     replyToId: String?,
     onBack: () -> Unit,
-    vm: ComposeViewModel = viewModel()
+    vm: ComposeViewModel = viewModel(factory = ComposeViewModel.Factory(replyToId))
 ) {
     val state by vm.uiState.collectAsState()
 
