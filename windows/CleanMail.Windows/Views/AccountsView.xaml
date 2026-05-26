@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="CleanMail.Windows.Views.AccountsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="16" Spacing="16">
+        <TextBlock Text="Accounts" Style="{StaticResource TitleTextBlockStyle}"/>
+
+        <ListView x:Name="AccountsList" ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Padding="8,4">
+                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                        <TextBlock Text="{Binding EmailAddress}" Style="{StaticResource CaptionTextBlockStyle}"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Button Content="Add Account" Style="{StaticResource AccentButtonStyle}"
+                Click="AddAccount_Click"/>
+    </StackPanel>
+</Page>

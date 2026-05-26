@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS email_template (
+    id              TEXT NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    subject         TEXT NOT NULL DEFAULT '',
+    body_text       TEXT NOT NULL DEFAULT '',
+    body_html       TEXT NOT NULL DEFAULT '',
+    to_defaults_json  TEXT NOT NULL DEFAULT '[]',
+    cc_defaults_json  TEXT NOT NULL DEFAULT '[]'
+);
+
+selectAll:
+SELECT * FROM email_template ORDER BY name;
+
+selectById:
+SELECT * FROM email_template WHERE id = ?;
+
+insert:
+INSERT OR REPLACE INTO email_template VALUES ?;
+
+delete:
+DELETE FROM email_template WHERE id = ?;

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="CleanMail.Windows.Views.AccountSetupView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer>
+        <StackPanel Padding="16" Spacing="12" MaxWidth="600">
+            <TextBlock Text="Add Account" Style="{StaticResource TitleTextBlockStyle}"/>
+
+            <TextBox Header="Display name" PlaceholderText="My Gmail"
+                     Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay}"/>
+            <TextBox Header="Email address" PlaceholderText="you@example.com"
+                     InputScope="EmailSmtpAddress"
+                     Text="{x:Bind ViewModel.Email, Mode=TwoWay}"/>
+            <PasswordBox Header="Password / App password"
+                         Password="{x:Bind ViewModel.Password, Mode=TwoWay}"/>
+
+            <TextBlock Text="IMAP" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+            <Grid ColumnDefinitions="*,90">
+                <TextBox Grid.Column="0" Header="Host" PlaceholderText="imap.gmail.com"
+                         Text="{x:Bind ViewModel.ImapHost, Mode=TwoWay}"/>
+                <TextBox Grid.Column="1" Header="Port" Text="{x:Bind ViewModel.ImapPort, Mode=TwoWay}"
+                         InputScope="Number" Margin="8,0,0,0"/>
+            </Grid>
+
+            <TextBlock Text="SMTP" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0"/>
+            <Grid ColumnDefinitions="*,90">
+                <TextBox Grid.Column="0" Header="Host" PlaceholderText="smtp.gmail.com"
+                         Text="{x:Bind ViewModel.SmtpHost, Mode=TwoWay}"/>
+                <TextBox Grid.Column="1" Header="Port" Text="{x:Bind ViewModel.SmtpPort, Mode=TwoWay}"
+                         InputScope="Number" Margin="8,0,0,0"/>
+            </Grid>
+
+            <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                       Foreground="{StaticResource SystemFillColorCriticalBrush}"
+                       Visibility="{x:Bind ViewModel.HasError, Mode=OneWay}"/>
+
+            <Button Content="Save" Style="{StaticResource AccentButtonStyle}"
+                    IsEnabled="{x:Bind ViewModel.CanSave, Mode=OneWay}"
+                    Click="SaveButton_Click" HorizontalAlignment="Right"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

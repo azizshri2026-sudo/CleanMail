@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+**/.gradle/
+**/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+*.p12
+*.jks
+*.keystore
+local.properties
+secrets.properties
+
+# SQLCipher databases
+*.db
+*.db-wal
+*.db-shm

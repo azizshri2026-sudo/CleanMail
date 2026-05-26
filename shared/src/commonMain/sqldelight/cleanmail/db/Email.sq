@@ -1,0 +1,88 @@
+CREATE TABLE IF NOT EXISTS email (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    account_id      TEXT    NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+    folder_id       TEXT    NOT NULL REFERENCES folder(id) ON DELETE CASCADE,
+    uid             INTEGER NOT NULL,
+    message_id      TEXT    NOT NULL DEFAULT '',
+
+    from_name       TEXT    NOT NULL DEFAULT '',
+    from_address    TEXT    NOT NULL,
+    reply_to_json   TEXT    NOT NULL DEFAULT '[]',
+    to_json         TEXT    NOT NULL DEFAULT '[]',
+    cc_json         TEXT    NOT NULL DEFAULT '[]',
+    bcc_json        TEXT    NOT NULL DEFAULT '[]',
+
+    subject         TEXT    NOT NULL DEFAULT '',
+    body_text       TEXT    NOT NULL DEFAULT '',
+    body_html       TEXT    NOT NULL DEFAULT '',
+    attachments_json TEXT   NOT NULL DEFAULT '[]',
+
+    date_epoch_ms   INTEGER NOT NULL,
+    is_read         INTEGER NOT NULL DEFAULT 0,
+    is_starred      INTEGER NOT NULL DEFAULT 0,
+    is_deleted      INTEGER NOT NULL DEFAULT 0,
+    is_draft        INTEGER NOT NULL DEFAULT 0,
+
+    thread_id       TEXT    NOT NULL DEFAULT '',
+    in_reply_to     TEXT    NOT NULL DEFAULT '',
+    references_json TEXT    NOT NULL DEFAULT '[]'
+);
+
+CREATE INDEX IF NOT EXISTS email_folder_idx   ON email(folder_id);
+CREATE INDEX IF NOT EXISTS email_account_idx  ON email(account_id);
+CREATE INDEX IF NOT EXISTS email_date_idx     ON email(date_epoch_ms DESC);
+CREATE INDEX IF NOT EXISTS email_thread_idx   ON email(thread_id);
+CREATE UNIQUE INDEX IF NOT EXISTS email_uid_folder ON email(uid, folder_id);
+
+selectByFolder:
+SELECT * FROM email
+WHERE folder_id = ? AND is_deleted = 0
+ORDER BY date_epoch_ms DESC
+LIMIT :limit OFFSET :offset;
+
+selectUnreadByFolder:
+SELECT * FROM email
+WHERE folder_id = ? AND is_read = 0 AND is_deleted = 0
+ORDER BY date_epoch_ms DESC;
+
+selectById:
+SELECT * FROM email WHERE id = ?;
+
+selectByUid:
+SELECT * FROM email WHERE uid = ? AND folder_id = ?;
+
+selectThread:
+SELECT * FROM email WHERE thread_id = ? ORDER BY date_epoch_ms ASC;
+
+searchBySubjectOrFrom:
+SELECT * FROM email
+WHERE account_id = :accountId
+  AND is_deleted = 0
+  AND (subject LIKE :query OR from_address LIKE :query OR from_name LIKE :query)
+ORDER BY date_epoch_ms DESC
+LIMIT 100;
+
+countUnread:
+SELECT COUNT(*) FROM email WHERE folder_id = ? AND is_read = 0 AND is_deleted = 0;
+
+insert:
+INSERT OR REPLACE INTO email VALUES ?;
+
+markRead:
+UPDATE email SET is_read = 1 WHERE id = ?;
+
+markUnread:
+UPDATE email SET is_read = 0 WHERE id = ?;
+
+markStarred:
+UPDATE email SET is_starred = :starred WHERE id = ?;
+
+softDelete:
+UPDATE email SET is_deleted = 1 WHERE id = ?;
+
+moveToFolder:
+UPDATE email SET folder_id = ? WHERE id = ?;
+
+deleteOlderThan:
+DELETE FROM email
+WHERE folder_id = :folderId AND date_epoch_ms < :thresholdMs AND is_starred = 0;

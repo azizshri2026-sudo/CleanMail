@@ -1,0 +1,49 @@
+CREATE TABLE IF NOT EXISTS account (
+    id                          TEXT    NOT NULL PRIMARY KEY,
+    display_name                TEXT    NOT NULL,
+    email_address               TEXT    NOT NULL,
+    auth_type                   TEXT    NOT NULL DEFAULT 'PASSWORD',
+
+    imap_host                   TEXT    NOT NULL,
+    imap_port                   INTEGER NOT NULL DEFAULT 993,
+    imap_security               TEXT    NOT NULL DEFAULT 'SSL_TLS',
+
+    smtp_host                   TEXT    NOT NULL,
+    smtp_port                   INTEGER NOT NULL DEFAULT 587,
+    smtp_security               TEXT    NOT NULL DEFAULT 'STARTTLS',
+
+    username_encrypted          TEXT    NOT NULL DEFAULT '',
+    password_encrypted          TEXT    NOT NULL DEFAULT '',
+    oauth_token_encrypted       TEXT    NOT NULL DEFAULT '',
+    oauth_refresh_token_encrypted TEXT  NOT NULL DEFAULT '',
+
+    proxy_type                  TEXT    NOT NULL DEFAULT 'NONE',
+    proxy_host                  TEXT    NOT NULL DEFAULT '',
+    proxy_port                  INTEGER NOT NULL DEFAULT 1080,
+    proxy_username              TEXT    NOT NULL DEFAULT '',
+    proxy_password_encrypted    TEXT    NOT NULL DEFAULT '',
+    proxy_force_dns             INTEGER NOT NULL DEFAULT 1,
+
+    sync_interval_minutes       INTEGER NOT NULL DEFAULT 15,
+    is_active                   INTEGER NOT NULL DEFAULT 1
+);
+
+selectAll:
+SELECT * FROM account WHERE is_active = 1 ORDER BY email_address;
+
+selectById:
+SELECT * FROM account WHERE id = ?;
+
+insert:
+INSERT OR REPLACE INTO account VALUES ?;
+
+updateOAuthTokens:
+UPDATE account
+SET oauth_token_encrypted = :token, oauth_refresh_token_encrypted = :refreshToken
+WHERE id = :id;
+
+deactivate:
+UPDATE account SET is_active = 0 WHERE id = ?;
+
+delete:
+DELETE FROM account WHERE id = ?;
