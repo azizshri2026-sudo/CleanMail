@@ -40,7 +40,8 @@ fun CleanMailNavHost() {
                 accountId = back.arguments?.getString("accountId") ?: "default",
                 onCompose = { navController.navigate(Screen.Compose.go()) },
                 onSettings = { navController.navigate(Screen.Settings.route) },
-                onReply = { emailId -> navController.navigate(Screen.Compose.go(emailId)) }
+                onReply = { emailId -> navController.navigate(Screen.Compose.go(emailId)) },
+                onSetupAccount = { navController.navigate(Screen.AccountSetup.go()) }
             )
         }
 

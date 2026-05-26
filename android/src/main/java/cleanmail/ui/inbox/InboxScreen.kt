@@ -25,9 +25,15 @@ fun InboxScreen(
     onCompose: () -> Unit,
     onSettings: () -> Unit,
     onReply: (String) -> Unit,
-    vm: InboxViewModel = viewModel()
+    onSetupAccount: () -> Unit = {},
+    vm: InboxViewModel = viewModel(factory = InboxViewModel.Factory(accountId))
 ) {
     val state by vm.uiState.collectAsState()
+
+    if (state.noAccounts) {
+        LaunchedEffect(Unit) { onSetupAccount() }
+        return
+    }
 
     Scaffold(
         topBar = {

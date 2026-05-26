@@ -1,10 +1,10 @@
 package cleanmail.ui.inbox
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import cleanmail.CleanMailApp
 import cleanmail.db.toDomain
-import cleanmail.imap.ImapSyncManager
 import cleanmail.models.Account
 import cleanmail.models.Email
 import kotlinx.coroutines.flow.*
@@ -14,25 +14,38 @@ data class InboxUiState(
     val emails: List<Email> = emptyList(),
     val isLoading: Boolean = false,
     val isSyncing: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val noAccounts: Boolean = false
 )
 
-class InboxViewModel(private val account: Account) : ViewModel() {
+class InboxViewModel(private val accountId: String) : ViewModel() {
 
     private val db = CleanMailApp.instance.database
-    private val syncManager = ImapSyncManager(account, db)
+    private var account: Account? = null
 
     private val _uiState = MutableStateFlow(InboxUiState(isLoading = true))
     val uiState: StateFlow<InboxUiState> = _uiState.asStateFlow()
 
     init {
-        loadFromDb()
+        viewModelScope.launch {
+            val accounts = db.accountQueries.selectAll().executeAsList()
+            if (accounts.isEmpty()) {
+                _uiState.update { it.copy(isLoading = false, noAccounts = true) }
+                return@launch
+            }
+            account = accounts.firstOrNull { it.id == accountId }?.toDomain()
+                ?: accounts.first().toDomain()
+            loadFromDb()
+        }
     }
 
     fun refresh() {
+        val acc = account ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, error = null) }
-            runCatching { syncManager.fullSync() }
+            runCatching {
+                cleanmail.imap.ImapSyncManager(acc, db).fullSync()
+            }
                 .onSuccess { loadFromDb() }
                 .onFailure { e -> _uiState.update { it.copy(error = e.message, isSyncing = false) } }
         }
@@ -53,9 +66,10 @@ class InboxViewModel(private val account: Account) : ViewModel() {
     }
 
     private fun loadFromDb() {
+        val acc = account ?: return
         viewModelScope.launch {
             val inboxFolder = db.folderQueries
-                .selectByRole(account.id, "INBOX")
+                .selectByRole(acc.id, "INBOX")
                 .executeAsOneOrNull()
             val emails = inboxFolder?.let {
                 db.emailQueries
@@ -67,8 +81,9 @@ class InboxViewModel(private val account: Account) : ViewModel() {
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        viewModelScope.launch { syncManager.disconnect() }
+    class Factory(private val accountId: String) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            InboxViewModel(accountId) as T
     }
 }
